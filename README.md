@@ -7,6 +7,12 @@ It runs on every platform (tested on: macOS, Windows 11, Windows 10, Windows 7, 
 # Requirements
 JDK 23 and gradle to compile it
 
+JDK 23 by Oracle:
+https://www.oracle.com/java/technologies/downloads/
+
+Gradle installation guide:
+https://gradle.org/install/
+
 # How to build
 
 On macos:
@@ -38,7 +44,7 @@ On Windows:
 
 To install gradle go to https://gradle.org/install/ and follow the installatio guide
 
-To build it you guess it
+To build it you guess it you have to run the following command:
 
 ```
 gradle build
