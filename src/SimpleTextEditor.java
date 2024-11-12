@@ -1,24 +1,12 @@
-// src/SimpleTextEditor.java
 import lang.Language;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
-import org.fife.ui.autocomplete.AutoCompletion;
-import org.fife.ui.autocomplete.CompletionProvider;
-import org.fife.ui.autocomplete.DefaultCompletionProvider;
-import org.fife.ui.autocomplete.BasicCompletion;
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.control.TextArea;
-import javafx.scene.layout.BorderPane;
-import javafx.stage.Stage;
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+import javax.swing.plaf.basic.BasicButtonUI;
+import java.awt.event.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +15,7 @@ import java.util.ServiceLoader;
 public class SimpleTextEditor extends JFrame {
     private static String language = "English";
     private JComboBox<String> languageComboBox;
-    private RSyntaxTextArea textArea;
+    private JTabbedPane tabbedPane;
     private JButton saveButton;
     private JButton openButton;
     private JButton runButton;
@@ -64,25 +52,18 @@ public class SimpleTextEditor extends JFrame {
             e.printStackTrace();
         }
 
-        textArea = new RSyntaxTextArea(20, 60);
-        textArea.setFont(new Font(defaultFont, Font.PLAIN, defaultTextSize));
-        textArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_PYTHON);
-        RTextScrollPane scrollPane = new RTextScrollPane(textArea);
-        scrollPane.setLineNumbersEnabled(showLineNumbers);
+        tabbedPane = new JTabbedPane();
+        add(tabbedPane, BorderLayout.CENTER);
 
-        textArea.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) {
-                updateStatusBar();
-            }
+        // Create the first tab
+        createNewTab();
 
-            public void removeUpdate(DocumentEvent e) {
-                updateStatusBar();
-            }
-
-            public void changedUpdate(DocumentEvent e) {
-                updateStatusBar();
-            }
-        });
+        // Add key binding for F5 to run the program
+        KeyStroke runKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0);
+        InputMap inputMap = getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        inputMap.put(runKeyStroke, "run");
+        ActionMap actionMap = getRootPane().getActionMap();
+        actionMap.put("run", new RunAction());
 
         JPanel controlsPanel = new JPanel();
         controlsPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
@@ -103,7 +84,6 @@ public class SimpleTextEditor extends JFrame {
         controlsPanel.add(runButton);
 
         add(controlsPanel, BorderLayout.NORTH);
-        add(scrollPane, BorderLayout.CENTER);
 
         // Copilot Button
         JButton copilotButton = new JButton(LanguageLoader.getText("copilotButton"));
@@ -113,7 +93,7 @@ public class SimpleTextEditor extends JFrame {
                 new Thread(() -> {
                     try {
                         // Check if the electron-app directory exists
-                        File electronAppDir = new File(System.getProperty("user.dir"), "electron-app");
+                        File electronAppDir = new File("electron-app").getAbsoluteFile();
                         if (!electronAppDir.exists()) {
                             throw new FileNotFoundException("Electron app directory not found: " + electronAppDir.getAbsolutePath());
                         }
@@ -174,7 +154,10 @@ public class SimpleTextEditor extends JFrame {
         zoomSlider.addChangeListener(e -> {
             int zoomPercent = zoomSlider.getValue();
             float zoomFactor = zoomPercent / 100.0f;
-            textArea.setFont(textArea.getFont().deriveFont(defaultTextSize * zoomFactor));
+            RSyntaxTextArea textArea = getCurrentTextArea();
+            if (textArea != null) {
+                textArea.setFont(textArea.getFont().deriveFont(defaultTextSize * zoomFactor));
+            }
         });
         controlsPanel.add(new JLabel(LanguageLoader.getText("zoom") + ":"));
         controlsPanel.add(zoomSlider);
@@ -187,7 +170,11 @@ public class SimpleTextEditor extends JFrame {
         JCheckBoxMenuItem lineNumbersItem = new JCheckBoxMenuItem(LanguageLoader.getText("showLineNumbers"), showLineNumbers);
         lineNumbersItem.addActionListener(e -> {
             showLineNumbers = lineNumbersItem.isSelected();
-            scrollPane.setLineNumbersEnabled(showLineNumbers);
+            RSyntaxTextArea textArea = getCurrentTextArea();
+            if (textArea != null) {
+                RTextScrollPane scrollPane = (RTextScrollPane) textArea.getParent().getParent();
+                scrollPane.setLineNumbersEnabled(showLineNumbers);
+            }
         });
         settingsMenu.add(lineNumbersItem);
 
@@ -198,6 +185,13 @@ public class SimpleTextEditor extends JFrame {
             applyDarkMode();
         });
         settingsMenu.add(darkModeItem);
+
+        JCheckBoxMenuItem highlightCurrentLineItem = new JCheckBoxMenuItem(LanguageLoader.getText("highlightCurrentLine"), true);
+        highlightCurrentLineItem.addActionListener(e -> {
+            boolean isSelected = highlightCurrentLineItem.isSelected();
+            updateHighlightCurrentLine(isSelected);
+        });
+        settingsMenu.add(highlightCurrentLineItem);
 
         // Show Copilot setting
         JCheckBoxMenuItem showCopilotItem = new JCheckBoxMenuItem(LanguageLoader.getText("showCopilot"), showCopilot);
@@ -216,7 +210,113 @@ public class SimpleTextEditor extends JFrame {
         setJMenuBar(menuBar);
 
         applyDarkMode();
-        setupAutoCompletion();
+    }
+
+    private void createNewTab() {
+        RSyntaxTextArea textArea = new RSyntaxTextArea(20, 60);
+        textArea.setFont(new Font("Arial", Font.PLAIN, 12));
+        textArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_PYTHON);
+        RTextScrollPane scrollPane = new RTextScrollPane(textArea);
+        scrollPane.setLineNumbersEnabled(true);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        tabbedPane.addTab(LanguageLoader.getText("newFile"), panel);
+        int index = tabbedPane.indexOfComponent(panel);
+        tabbedPane.setTabComponentAt(index, new CustomTabComponent(tabbedPane));
+    }
+
+    private class NewFileAction implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            createNewTab();
+        }
+    }
+
+    private class CustomTabComponent extends JPanel {
+        private final JTabbedPane pane;
+
+        public CustomTabComponent(final JTabbedPane pane) {
+            super(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            if (pane == null) {
+                throw new NullPointerException(LanguageLoader.getText("tabbedPane"));
+            }
+            this.pane = pane;
+            setOpaque(false);
+
+            JLabel label = new JLabel() {
+                public String getText() {
+                    int i = pane.indexOfTabComponent(CustomTabComponent.this);
+                    if (i != -1) {
+                        return pane.getTitleAt(i);
+                    }
+                    return null;
+                }
+            };
+
+            add(label);
+            label.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
+            JButton button = new TabButton();
+            add(button);
+        }
+
+        private class TabButton extends JButton implements ActionListener {
+            public TabButton() {
+                int size = 17;
+                setPreferredSize(new Dimension(size, size));
+                setToolTipText(LanguageLoader.getText("closeTab"));
+                setUI(new BasicButtonUI());
+                setContentAreaFilled(false);
+                setFocusable(false);
+                setBorder(BorderFactory.createEtchedBorder());
+                setBorderPainted(false);
+                addMouseListener(new MouseAdapter() {
+                    public void mouseEntered(MouseEvent e) {
+                        setBorderPainted(true);
+                    }
+
+                    public void mouseExited(MouseEvent e) {
+                        setBorderPainted(false);
+                    }
+                });
+                setRolloverEnabled(true);
+                addActionListener(this);
+            }
+
+            public void actionPerformed(ActionEvent e) {
+                int i = pane.indexOfTabComponent(CustomTabComponent.this);
+                if (i != -1) {
+                    pane.remove(i);
+                }
+            }
+
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                if (getModel().isPressed()) {
+                    g2.translate(1, 1);
+                }
+                g2.setStroke(new BasicStroke(2));
+                g2.setColor(Color.BLACK);
+                if (getModel().isRollover()) {
+                    g2.setColor(Color.RED);
+                }
+                int delta = 6;
+                g2.drawLine(delta, delta, getWidth() - delta - 1, getHeight() - delta - 1);
+                g2.drawLine(getWidth() - delta - 1, delta, delta, getHeight() - delta - 1);
+                g2.dispose();
+            }
+        }
+    }
+
+    private RSyntaxTextArea getCurrentTextArea() {
+        int selectedIndex = tabbedPane.getSelectedIndex();
+        if (selectedIndex != -1) {
+            JPanel panel = (JPanel) tabbedPane.getComponentAt(selectedIndex);
+            RTextScrollPane scrollPane = (RTextScrollPane) panel.getComponent(0);
+            return (RSyntaxTextArea) scrollPane.getViewport().getView();
+        }
+        return null;
     }
 
     private void loadLanguages() {
@@ -227,41 +327,46 @@ public class SimpleTextEditor extends JFrame {
         }
     }
 
-    private void setupAutoCompletion() {
-        CompletionProvider provider = createCompletionProvider();
-        AutoCompletion ac = new AutoCompletion(provider);
-        ac.install(textArea);
-    }
-
-    private CompletionProvider createCompletionProvider() {
-        DefaultCompletionProvider provider = new DefaultCompletionProvider();
-        String selectedLanguage = (String) languageComboBox.getSelectedItem();
-        for (Language lang : languages) {
-            if (lang.getName().equals(selectedLanguage)) {
-                return lang.getCompletionProvider();
-            }
+    private void updateHighlightCurrentLine(boolean highlight) {
+        for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+            JPanel panel = (JPanel) tabbedPane.getComponentAt(i);
+            RTextScrollPane scrollPane = (RTextScrollPane) panel.getComponent(0);
+            RSyntaxTextArea textArea = (RSyntaxTextArea) scrollPane.getViewport().getView();
+            textArea.setHighlightCurrentLine(highlight);
         }
-        return provider;
     }
 
     private void updateStatusBar() {
-        String text = textArea.getText();
-        int wordCount = text.split("\\s+").length;
-        wordCount = wordCount == 1 && text.isEmpty() ? 0 : wordCount;
-        int lineCount = textArea.getLineCount();
-        String statusText = String.format("Words: %d, Lines: %d", wordCount, lineCount);
-        statusBar.setText(statusText);
+        RSyntaxTextArea textArea = getCurrentTextArea();
+        if (textArea != null) {
+            String text = textArea.getText();
+            int wordCount = text.split("\\s+").length;
+            wordCount = wordCount == 1 && text.isEmpty() ? 0 : wordCount;
+            int lineCount = textArea.getLineCount();
+            String statusText = String.format("Words: %d, Lines: %d", wordCount, lineCount);
+            statusBar.setText(statusText);
+        }
     }
 
     private void applyDarkMode() {
         if (darkMode) {
             getContentPane().setBackground(new Color(30, 30, 30)); // Darker dark gray
-            textArea.setBackground(new Color(50, 50, 50)); // Lighter dark gray
-            textArea.setForeground(Color.WHITE);
+            for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+                JPanel panel = (JPanel) tabbedPane.getComponentAt(i);
+                RTextScrollPane scrollPane = (RTextScrollPane) panel.getComponent(0);
+                RSyntaxTextArea textArea = (RSyntaxTextArea) scrollPane.getViewport().getView();
+                textArea.setBackground(new Color(50, 50, 50)); // Lighter dark gray
+                textArea.setForeground(Color.WHITE);
+            }
         } else {
             getContentPane().setBackground(Color.LIGHT_GRAY);
-            textArea.setBackground(Color.WHITE);
-            textArea.setForeground(Color.BLACK);
+            for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+                JPanel panel = (JPanel) tabbedPane.getComponentAt(i);
+                RTextScrollPane scrollPane = (RTextScrollPane) panel.getComponent(0);
+                RSyntaxTextArea textArea = (RSyntaxTextArea) scrollPane.getViewport().getView();
+                textArea.setBackground(Color.WHITE);
+                textArea.setForeground(Color.BLACK);
+            }
         }
     }
 
@@ -269,8 +374,11 @@ public class SimpleTextEditor extends JFrame {
         String selectedLanguage = (String) languageComboBox.getSelectedItem();
         for (Language lang : languages) {
             if (lang.getName().equals(selectedLanguage)) {
-                textArea.setSyntaxEditingStyle(lang.getSyntaxStyle());
-                textArea.setForeground(Color.BLUE); // Set a default color, you can customize it per language
+                RSyntaxTextArea textArea = getCurrentTextArea();
+                if (textArea != null) {
+                    textArea.setSyntaxEditingStyle(lang.getSyntaxStyle());
+                    textArea.setForeground(Color.BLUE); // Set a default color, you can customize it per language
+                }
                 break;
             }
         }
@@ -289,7 +397,10 @@ public class SimpleTextEditor extends JFrame {
                     filePath += fileExtension; // Add the appropriate extension if not provided
                 }
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
-                    textArea.write(writer);
+                    RSyntaxTextArea textArea = getCurrentTextArea();
+                    if (textArea != null) {
+                        textArea.write(writer);
+                    }
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(SimpleTextEditor.this, LanguageLoader.getText("errorSavingFile"), "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -314,7 +425,10 @@ public class SimpleTextEditor extends JFrame {
             if (option == JFileChooser.APPROVE_OPTION) {
                 String filePath = fileChooser.getSelectedFile().getAbsolutePath();
                 try {
-                    textArea.read(new java.io.FileReader(filePath), null);
+                    RSyntaxTextArea textArea = getCurrentTextArea();
+                    if (textArea != null) {
+                        textArea.read(new java.io.FileReader(filePath), null);
+                    }
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(SimpleTextEditor.this, LanguageLoader.getText("errorOpeningFile"), "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -322,45 +436,55 @@ public class SimpleTextEditor extends JFrame {
         }
     }
 
-    private class NewFileAction implements ActionListener {
-        public void actionPerformed(ActionEvent e) {
-            textArea.setText("");
-        }
-    }
 
-    private class RunAction implements ActionListener {
+    private class RunAction extends AbstractAction {
+        @Override
         public void actionPerformed(ActionEvent e) {
-            String code = textArea.getText();
-            new SwingWorker<Void, String>() {
-                @Override
-                protected Void doInBackground() throws Exception {
-                    try {
-                        String selectedLanguage = (String) languageComboBox.getSelectedItem();
-                        for (Language lang : languages) {
-                            if (lang.getName().equals(selectedLanguage)) {
-                                String os = System.getProperty("os.name").toLowerCase();
-                                File tempFile = File.createTempFile("temp", lang.getFileExtension());
-                                try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
-                                    writer.write(code);
+            RSyntaxTextArea textArea = getCurrentTextArea();
+            if (textArea != null) {
+                String code = textArea.getText();
+                new SwingWorker<Void, String>() {
+                    @Override
+                    protected Void doInBackground() throws Exception {
+                        try {
+                            String selectedLanguage = (String) languageComboBox.getSelectedItem();
+                            for (Language lang : languages) {
+                                if (lang.getName().equals(selectedLanguage)) {
+                                    String os = System.getProperty("os.name").toLowerCase();
+                                    File tempFile = File.createTempFile("temp", lang.getFileExtension());
+                                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
+                                        writer.write(code);
+                                    }
+                                    String[] command = lang.getRunCommand(os, tempFile);
+                                    ProcessBuilder processBuilder = new ProcessBuilder(command);
+                                    processBuilder.redirectErrorStream(true);
+                                    Process process = processBuilder.start();
+                                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                                    String line;
+                                    while ((line = reader.readLine()) != null) {
+                                        System.out.println(line);
+                                    }
+                                    process.waitFor(); // Wait for the process to complete
+                                    System.out.println("Press Enter to close the terminal...");
+                                    System.in.read(); // Wait for user input
+                                    process.destroy(); // Close the terminal process
+
+                                    // Run the pause and exit commands if on Windows
+                                    if (os.contains("win")) {
+                                        new ProcessBuilder("cmd.exe", "/c", "pause && exit").start();
+                                    } else {
+                                        new ProcessBuilder("/bin/bash", "-c", "exit").start();
+                                    }
+                                    break;
                                 }
-                                String[] command = lang.getRunCommand(os, tempFile);
-                                ProcessBuilder processBuilder = new ProcessBuilder(command);
-                                processBuilder.redirectErrorStream(true);
-                                Process process = processBuilder.start();
-                                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                                String line;
-                                while ((line = reader.readLine()) != null) {
-                                    System.out.println(line);
-                                }
-                                break;
                             }
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
                         }
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
+                        return null;
                     }
-                    return null;
-                }
-            }.execute();
+                }.execute();
+            }
         }
     }
 
@@ -374,8 +498,8 @@ public class SimpleTextEditor extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             LanguageLoader.loadLanguage(language);
-            PitoneMenu menu = new PitoneMenu();
-            menu.setVisible(true);
+            SimpleTextEditor editor = new SimpleTextEditor();
+            editor.setVisible(true);
         });
     }
 }

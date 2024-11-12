@@ -1,8 +1,5 @@
 package lang;
 
-import org.fife.ui.autocomplete.BasicCompletion;
-import org.fife.ui.autocomplete.DefaultCompletionProvider;
-import org.fife.ui.autocomplete.CompletionProvider;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
 import javax.swing.*;
@@ -29,13 +26,7 @@ public class C implements Language {
         return SyntaxConstants.SYNTAX_STYLE_C;
     }
 
-    @Override
-    public CompletionProvider getCompletionProvider() {
-        DefaultCompletionProvider provider = new DefaultCompletionProvider();
-        provider.addCompletion(new BasicCompletion(provider, "int"));
-        provider.addCompletion(new BasicCompletion(provider, "return"));
-        return provider;
-    }
+
 
     @Override
     public String[] getRunCommand(String os, File tempFile) {

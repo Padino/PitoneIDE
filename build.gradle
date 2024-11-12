@@ -13,17 +13,7 @@ dependencies {
     implementation 'com.formdev:flatlaf:2.0'
 
     // RSyntaxTextArea
-    implementation 'com.fifesoft:rsyntaxtextarea:3.5.2'
-    implementation 'com.fifesoft.rtext:rtext:2.0.7'
-
-    // JavaFX
-    implementation 'org.openjfx:javafx-controls:17.0.1'
-    implementation 'org.openjfx:javafx-fxml:17.0.1'
-}
-
-javafx {
-    version = "17.0.1"
-    modules = [ 'javafx.controls', 'javafx.fxml' ]
+    implementation 'com.fifesoft:rsyntaxtextarea:3.0.0'
 }
 
 sourceSets {
@@ -41,10 +31,20 @@ sourceSets {
     }
 }
 
+java {
+    // Configurazione della toolchain per Java 11
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+sourceCompatibility = '11'
+targetCompatibility = '11'
+
 jar {
     manifest {
         attributes(
-            'Main-Class': 'PitoneMenu'
+            'Main-Class': 'PitoneMenuNew'  // Update this to the correct main class
         )
     }
     from {
@@ -56,5 +56,8 @@ jar {
     }
     from('src/themes') {
         into 'themes'
+    }
+    from('electron-app') {
+        into 'electron-app'
     }
 }
