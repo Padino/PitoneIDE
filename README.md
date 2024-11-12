@@ -5,10 +5,12 @@ A multipurpose IDE written in java that uses the swing library as the UI interfa
 It runs on every platform (tested on: macOS, Windows 11, Windows 10, Windows 7, Linux Debian, Linux Arch)
 
 # Requirements
-JDK 23 and gradle to compile it
-
-JDK 23 by Oracle:
-https://www.oracle.com/java/technologies/downloads/
+JDK 8 and gradle to compile it
+```diff
+#I advice using at least java 11 for the best experience
+```
+JDK 11 by Azul:
+https://www.azul.com/downloads/?version=java-11-lts&package=jdk#zulu
 
 Gradle installation guide:
 https://gradle.org/install/
