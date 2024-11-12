@@ -9,8 +9,8 @@ JDK 8 and gradle to compile it
 ```diff
 #I advice using at least java 11 for the best experience
 ```
-JDK 11 by Azul:
-https://www.azul.com/downloads/?version=java-11-lts&package=jdk#zulu
+Java JDK by Azul:
+https://www.azul.com/downloads/
 
 Gradle installation guide:
 https://gradle.org/install/
