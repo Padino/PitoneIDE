@@ -53,4 +53,4 @@ gradle build
 ```
 
 # Note:
-You to buil the gradle file you have to be in the root of the project
+To build the gradle file you have to be in the root of the project
